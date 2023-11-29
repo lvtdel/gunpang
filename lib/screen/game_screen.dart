@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:gunpang/component/bullet.dart';
 import 'package:gunpang/component/person_avatar.dart';
 
+import '../ultil/Direction.dart';
+
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
 
@@ -21,13 +23,21 @@ class _GameScreenState extends State<GameScreen> {
   Offset _bulletOffset = Offset(800, 100);
   bool _isShooting = false;
   int _alpha = 65;
-  double v0 = 15;
+  double v0 = 20;
+  Direction _direction = Direction(Direction.right);
 
   bool _areOffsetsEqual(Offset offset1, Offset offset2) {
     double _epsilon = 1;
 
     return (offset1.dx - offset2.dx).abs() < _epsilon &&
         (offset1.dy - offset2.dy).abs() < _epsilon;
+  }
+
+  bool _isBulletOutRange(Offset offset) {
+    if (offset.dx < 0 || _size.width < offset.dx || offset.dy < 20) {
+      return true;
+    }
+    return false;
   }
 
   _setAvatarOffset(double dx, double dy) {
@@ -63,8 +73,8 @@ class _GameScreenState extends State<GameScreen> {
               double dx = _avatarOffset.dx + _step;
               double dy = _avatarOffset.dy;
               _setAvatarOffset(dx, dy);
-
-              debugPrint('Arrow pressed');
+              _direction.value = Direction.right;
+              print(_direction.value);
             }
             break;
           case LogicalKeyboardKey.arrowLeft:
@@ -72,8 +82,8 @@ class _GameScreenState extends State<GameScreen> {
               double dx = _avatarOffset.dx - _step;
               double dy = _avatarOffset.dy;
               _setAvatarOffset(dx, dy);
-
-              debugPrint('Arrow pressed');
+              _direction.value = Direction.left;
+              print(_direction.value);
             }
             break;
           case LogicalKeyboardKey.arrowUp:
@@ -83,7 +93,7 @@ class _GameScreenState extends State<GameScreen> {
               });
             }
             break;
-          case LogicalKeyboardKey.arrowUp:
+          case LogicalKeyboardKey.arrowDown:
             {
               setState(() {
                 _alpha = _clampValue(10, 90, _alpha - 1).round();
@@ -93,8 +103,10 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
 
-      if (event.logicalKey == LogicalKeyboardKey.space) {
-        _shoot();
+      if (!_isShooting) {
+        if (event.logicalKey == LogicalKeyboardKey.space) {
+          _shoot();
+        }
       }
     }
   }
@@ -103,24 +115,29 @@ class _GameScreenState extends State<GameScreen> {
     Duration duration = const Duration(milliseconds: 100);
     double t = 0;
     double k = 2.5;
+    int directionValue = _direction.value;
 
-    _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
+    // _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
 
+    _isShooting = true;
     Timer timer = Timer.periodic(duration, (timer) {
       t += k * duration.inMilliseconds / 1000;
       print('Đã trôi qua $t giây.');
 
-      double dx = _bulletOffset.dx + v0 * cos(_alpha) * t;
-      double dy = _bulletOffset.dy + v0 * sin(_alpha) * t - 9.8 * t * t / 2;
+      double dx =
+          _bulletOffset.dx + directionValue * v0 * cos(_alpha * pi / 180) * t;
+      double dy =
+          _bulletOffset.dy + v0 * sin(_alpha * pi / 180) * t - 9.8 * t * t / 2;
+
+      if (_isBulletOutRange(Offset(dx, dy))) {
+        _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
+        _isShooting = false;
+        timer.cancel();
+      }
 
       setState(() {
         _bulletOffset = Offset(dx, dy);
       });
-
-      if (t > 5) {
-        _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
-        timer.cancel();
-      }
     });
   }
 
