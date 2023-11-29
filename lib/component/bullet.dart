@@ -5,6 +5,10 @@ class Bullet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(width: 10, height: 10 ,decoration: BoxDecoration(color: Colors.red),);
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+    );
   }
 }

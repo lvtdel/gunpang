@@ -19,12 +19,14 @@ class _GameScreenState extends State<GameScreen> {
   final FocusNode _focusNode = FocusNode();
   late Size _size;
   final double _step = 8;
-  Offset _avatarOffset = Offset(800, 100);
-  Offset _bulletOffset = Offset(800, 100);
+  Offset _avatarOffset = Offset(1500, 100);
+  Offset _bulletOffset = Offset(1500, 100);
   bool _isShooting = false;
   int _alpha = 65;
-  double v0 = 20;
-  Direction _direction = Direction(Direction.right);
+  final double _timeCoefficient = 7;
+  final Direction _direction = Direction(Direction.right);
+  double v0 = 207;
+  // double v0 = 100;
 
   bool _areOffsetsEqual(Offset offset1, Offset offset2) {
     double _epsilon = 1;
@@ -34,7 +36,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   bool _isBulletOutRange(Offset offset) {
-    if (offset.dx < 0 || _size.width < offset.dx || offset.dy < 20) {
+    if (offset.dx < 0 || _size.width < offset.dx || offset.dy < 5) {
       return true;
     }
     return false;
@@ -112,32 +114,38 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future _shoot() async {
-    Duration duration = const Duration(milliseconds: 100);
+    // 1000* 1/60 = 16.67
+    const int timeRefreshMillisecond = 16;
+
+    Duration duration = const Duration(milliseconds: timeRefreshMillisecond);
     double t = 0;
-    double k = 2.5;
     int directionValue = _direction.value;
 
     // _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
 
     _isShooting = true;
     Timer timer = Timer.periodic(duration, (timer) {
-      t += k * duration.inMilliseconds / 1000;
+      t += _timeCoefficient * duration.inMilliseconds / 1000;
       print('Đã trôi qua $t giây.');
 
       double dx =
-          _bulletOffset.dx + directionValue * v0 * cos(_alpha * pi / 180) * t;
+          _avatarOffset.dx + directionValue * v0 * cos(_alpha * pi / 180) * t;
       double dy =
-          _bulletOffset.dy + v0 * sin(_alpha * pi / 180) * t - 9.8 * t * t / 2;
+          _avatarOffset.dy + v0 * sin(_alpha * pi / 180) * t - 9.8 * t * t / 2;
 
       if (_isBulletOutRange(Offset(dx, dy))) {
-        _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
-        _isShooting = false;
+        setState(() {
+          _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
+          _isShooting = false;
+        });
         timer.cancel();
+      } else {
+        if (dy < _size.height + 100) {
+          setState(() {
+            _bulletOffset = Offset(dx, dy);
+          });
+        }
       }
-
-      setState(() {
-        _bulletOffset = Offset(dx, dy);
-      });
     });
   }
 
@@ -145,7 +153,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final size = context.size;
-      // print('Width: ${size?.width}, Height: ${size?.height}');
+      print('Width: ${size?.width}, Height: ${size?.height}');
       _size = size!;
     });
 
@@ -188,7 +196,7 @@ class _GameScreenState extends State<GameScreen> {
           AnimatedPositioned(
               bottom: _bulletOffset.dy,
               left: _bulletOffset.dx,
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 00),
               child: _areOffsetsEqual(_avatarOffset, _bulletOffset)
                   ? Container()
                   : Bullet()),
@@ -197,7 +205,7 @@ class _GameScreenState extends State<GameScreen> {
               left: 5,
               child: Text(
                 _alpha.toString(),
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.black,
                   fontSize: 20,
                 ),
