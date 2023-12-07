@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gunpang/component/bullet.dart';
+import 'package:gunpang/component/ground.dart';
 import 'package:gunpang/component/person_avatar.dart';
 
 import '../ultil/Direction.dart';
@@ -17,15 +18,25 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   final FocusNode _focusNode = FocusNode();
+
   late Size _size;
   final double _step = 8;
-  Offset _avatarOffset = Offset(1500, 100);
-  Offset _bulletOffset = Offset(1500, 100);
+  final dyGround = 100.0;
+  late Offset _avatarOffset = Offset(1500, dyGround + 5);
+  late Offset _bulletOffset = Offset(1500, dyGround + 5);
+
+  Size _bulletSize = Size(20, 20);
+  bool _isBulletExplosive = false;
+
   bool _isShooting = false;
   int _alpha = 65;
   final double _timeCoefficient = 7;
   final Direction _direction = Direction(Direction.right);
-  double v0 = 207;
+  final double vMax = 207;
+  double v0old = 0;
+  double v0 = 0;
+  double vStep = 2;
+
   // double v0 = 100;
 
   bool _areOffsetsEqual(Offset offset1, Offset offset2) {
@@ -37,6 +48,13 @@ class _GameScreenState extends State<GameScreen> {
 
   bool _isBulletOutRange(Offset offset) {
     if (offset.dx < 0 || _size.width < offset.dx || offset.dy < 5) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _isBulletHitTheGround(Offset offset) {
+    if (offset.dy < dyGround) {
       return true;
     }
     return false;
@@ -103,12 +121,30 @@ class _GameScreenState extends State<GameScreen> {
             }
             break;
         }
-      }
 
-      if (!_isShooting) {
         if (event.logicalKey == LogicalKeyboardKey.space) {
-          _shoot();
+          setState(() {
+            v0 = _clampValue(0, vMax, v0 + vStep);
+          });
         }
+
+        // if (!_isShooting) {
+        //   if (event.logicalKey == LogicalKeyboardKey.space) {
+        //     _shoot();
+        //   }
+        // }
+      }
+    }
+
+    if (event is RawKeyUpEvent) {
+      switch (event.logicalKey) {
+        case LogicalKeyboardKey.space:
+          {
+            if (!_isShooting) {
+              _shoot();
+            }
+          }
+          break;
       }
     }
   }
@@ -124,7 +160,7 @@ class _GameScreenState extends State<GameScreen> {
     // _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
 
     _isShooting = true;
-    Timer timer = Timer.periodic(duration, (timer) {
+    Timer timer = Timer.periodic(duration, (timer) async {
       t += _timeCoefficient * duration.inMilliseconds / 1000;
       print('Đã trôi qua $t giây.');
 
@@ -134,11 +170,13 @@ class _GameScreenState extends State<GameScreen> {
           _avatarOffset.dy + v0 * sin(_alpha * pi / 180) * t - 9.8 * t * t / 2;
 
       if (_isBulletOutRange(Offset(dx, dy))) {
-        setState(() {
-          _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
-          _isShooting = false;
-        });
         timer.cancel();
+        _endShoot();
+      } else if (_isBulletHitTheGround(Offset(dx, dy))) {
+        timer.cancel();
+        await _explosiveBullet();
+        _endShoot();
+
       } else {
         if (dy < _size.height + 100) {
           setState(() {
@@ -146,6 +184,28 @@ class _GameScreenState extends State<GameScreen> {
           });
         }
       }
+    });
+  }
+
+  _explosiveBullet() async {
+    setState(() {
+      _isBulletExplosive = true;
+      _bulletSize = Size(_bulletSize.width * 2, _bulletSize.height * 2);
+    });
+    await Future.delayed(
+      const Duration(seconds: 1),
+    );
+    setState(() {
+      _isBulletExplosive = false;
+      _bulletSize = Size(_bulletSize.width / 2, _bulletSize.height / 2);
+    });
+  }
+
+  _endShoot() {
+    setState(() {
+      _bulletOffset = Offset(_avatarOffset.dx, _avatarOffset.dy);
+      _isShooting = false;
+      v0 = 0;
     });
   }
 
@@ -188,6 +248,12 @@ class _GameScreenState extends State<GameScreen> {
                               )
                             ]))),
               )),
+          Positioned.fill(child:
+          CustomPaint(
+            painter: GroundPainter(dyGround, Colors.black54, 3),
+          )
+            // Container(color:Colors.red,)
+          ),
           AnimatedPositioned(
               bottom: _avatarOffset.dy,
               left: _avatarOffset.dx,
@@ -199,7 +265,13 @@ class _GameScreenState extends State<GameScreen> {
               duration: const Duration(milliseconds: 00),
               child: _areOffsetsEqual(_avatarOffset, _bulletOffset)
                   ? Container()
-                  : Bullet()),
+                  : AnimatedContainer(
+                      width: _bulletSize.width,
+                      height: _bulletSize.height,
+                      duration: const Duration(milliseconds: 200),
+                      child: Bullet(
+                        isBulletExplosive: _isBulletExplosive,
+                      ))),
           Positioned(
               bottom: 30,
               left: 5,
@@ -209,6 +281,26 @@ class _GameScreenState extends State<GameScreen> {
                   color: Colors.black,
                   fontSize: 20,
                 ),
+              )),
+          Positioned(
+              bottom: 30,
+              left: 100,
+              right: 100,
+              child: Row(
+                children: [
+                  Expanded(
+                      flex: (v0 * 10).round(),
+                      child: Container(
+                        height: 20,
+                        color: Colors.amberAccent,
+                      )),
+                  Expanded(
+                      flex: ((vMax - v0) * 10).round(),
+                      child: Container(
+                        height: 20,
+                        color: Colors.white,
+                      ))
+                ],
               ))
         ],
       ),
